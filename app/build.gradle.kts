@@ -8,6 +8,7 @@ plugins {
 android { namespace = "com.dayflow.planner"; compileSdk = 35
     defaultConfig { applicationId = "com.dayflow.planner"; minSdk = 26; targetSdk = 35; versionCode = 1; versionName = "1.0"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     buildFeatures { compose = true }
+    buildTypes { getByName("release") { signingConfig = signingConfigs.getByName("debug") } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }

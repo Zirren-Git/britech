@@ -45,19 +45,8 @@ jobs:
           if-no-files-found: ignore
       - name: Build debug and release APKs
         run: gradle --no-daemon assembleDebug assembleRelease
-      - name: Sign release APK with a runner-generated key
-        run: |
-          KEYSTORE="$RUNNER_TEMP/dayflow-release.jks"
-          STORE_PASS="$(openssl rand -hex 16)"
-          KEY_PASS="$(openssl rand -hex 16)"
-          keytool -genkeypair -v -keystore "$KEYSTORE" -storepass "$STORE_PASS" \
-            -alias dayflow-release -keypass "$KEY_PASS" -keyalg RSA -keysize 2048 \
-            -validity 10000 -dname "CN=DayFlow Planner, OU=Build, O=DayFlow, L=Unknown, ST=Unknown, C=SE"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$KEYSTORE" \
-            --ks-key-alias dayflow-release --ks-pass "pass:$STORE_PASS" \
-            --key-pass "pass:$KEY_PASS" --out app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/release/app-release-unsigned.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/release/app-release.apk
+      - name: Verify release APK signature
+        run: "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/release/app-release.apk
       - name: Verify APK outputs
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
@@ -84,5 +73,5 @@ jobs:
             app/build/outputs/apk/release/app-release.apk \
             --repo "$REPOSITORY" \
             --title "DayFlow Planner build ${RUN_NO}" \
-            --notes "Automated Android build from commit ${GITHUB_SHA}. The release APK is signed with a runner-generated key; the debug APK uses the standard Android debug key." \
+            --notes "Automated Android build from commit ${GITHUB_SHA}. Both APKs are signed with the standard Android debug key for convenient sideload installation. This key is not suitable for Play Store publication." \
             --prerelease
