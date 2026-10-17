@@ -31,7 +31,18 @@ jobs:
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -1)"
           "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - name: Run unit tests
-        run: gradle --no-daemon testDebugUnitTest
+        run: |
+          gradle --no-daemon testDebugUnitTest --stacktrace > gradle-test.log 2>&1 || {
+            tail -n 60 gradle-test.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          }
+      - name: Preserve Gradle diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-diagnostics
+          path: gradle-test.log
+          if-no-files-found: ignore
       - name: Build debug and release APKs
         run: gradle --no-daemon assembleDebug assembleRelease
       - name: Sign release APK with a runner-generated key
