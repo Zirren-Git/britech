@@ -46,7 +46,7 @@ jobs:
       - name: Build debug and release APKs
         run: gradle --no-daemon assembleDebug assembleRelease
       - name: Verify release APK signature
-        run: "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/release/app-release.apk
+        run: $ANDROID_HOME/build-tools/35.0.0/apksigner verify app/build/outputs/apk/release/app-release.apk
       - name: Verify APK outputs
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
