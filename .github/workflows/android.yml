@@ -1,0 +1,75 @@
+name: Android APK
+
+on:
+  push:
+    branches: ["arena/e7ce116f-britech"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK packages
+        uses: android-actions/setup-android@v3
+      - name: Install platform and build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Run unit tests
+        run: gradle --no-daemon testDebugUnitTest
+      - name: Build debug and release APKs
+        run: gradle --no-daemon assembleDebug assembleRelease
+      - name: Sign release APK with a runner-generated key
+        run: |
+          KEYSTORE="$RUNNER_TEMP/dayflow-release.jks"
+          STORE_PASS="$(openssl rand -hex 16)"
+          KEY_PASS="$(openssl rand -hex 16)"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storepass "$STORE_PASS" \
+            -alias dayflow-release -keypass "$KEY_PASS" -keyalg RSA -keysize 2048 \
+            -validity 10000 -dname "CN=DayFlow Planner, OU=Build, O=DayFlow, L=Unknown, ST=Unknown, C=SE"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$KEYSTORE" \
+            --ks-key-alias dayflow-release --ks-pass "pass:$STORE_PASS" \
+            --key-pass "pass:$KEY_PASS" --out app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/apk/release/app-release-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/release/app-release.apk
+      - name: Verify APK outputs
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/release/app-release.apk
+          ls -lh app/build/outputs/apk/{debug,release}/*.apk
+      - name: Upload APKs as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dayflow-planner-apks
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 90
+      - name: Publish APKs as GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NO: ${{ github.run_number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          TAG="dayflow-build-${RUN_NO}"
+          gh release create "$TAG" \
+            app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/release/app-release.apk \
+            --repo "$REPOSITORY" \
+            --title "DayFlow Planner build ${RUN_NO}" \
+            --notes "Automated Android build from commit ${GITHUB_SHA}. The release APK is signed with a runner-generated key; the debug APK uses the standard Android debug key." \
+            --prerelease
