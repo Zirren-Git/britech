@@ -33,7 +33,7 @@ jobs:
       - name: Run unit tests
         run: |
           gradle --no-daemon testDebugUnitTest --stacktrace > gradle-test.log 2>&1 || {
-            tail -n 60 gradle-test.log | while IFS= read -r line; do echo "::error::$line"; done
+            { grep -E '^(e:|w:|FAILURE:|Execution failed|.*\.kt:.*error:|.*What went wrong:)' gradle-test.log || true; head -n 25 gradle-test.log; } | while IFS= read -r line; do echo "::error::$line"; done
             exit 1
           }
       - name: Preserve Gradle diagnostics
